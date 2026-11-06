@@ -27,15 +27,31 @@ const EXE = {
 };
 const SPAWN_OPTS = { windowsHide: true, cwd: SYS };
 
-let wingetPath; // undefined = not looked up yet, null = not found
+let wingetPath;    // undefined = not looked up yet, null = not found
+let wingetVersion = "";
 async function resolveWinget() {
   if (wingetPath !== undefined) return wingetPath;
-  const alias = path.join(process.env.LOCALAPPDATA || "", "Microsoft", "WindowsApps", "winget.exe");
-  if (process.env.LOCALAPPDATA && fs.existsSync(alias)) return (wingetPath = alias);
-  const r = await run("where", ["winget"]);
-  const first = r.out.split(/\r?\n/)[0].trim();
-  wingetPath = r.code === 0 && path.isAbsolute(first) && fs.existsSync(first) ? first : null;
-  return wingetPath;
+  // winget is a Windows "app execution alias". Node can't stat those, so test by running it.
+  // Only accept locations Windows itself uses, never a random folder on PATH.
+  const safeRoots = [
+    path.join(process.env.LOCALAPPDATA || "", "Microsoft", "WindowsApps"),
+    path.join(process.env.ProgramFiles || "C:\\Program Files", "WindowsApps"),
+    process.env.SystemRoot || "C:\\Windows",
+  ].map((p) => p.toLowerCase());
+  const cands = [];
+  if (process.env.LOCALAPPDATA) cands.push(path.join(process.env.LOCALAPPDATA, "Microsoft", "WindowsApps", "winget.exe"));
+  const w = await run("where", ["winget"]);
+  if (w.code === 0) {
+    for (const line of w.out.split(/\r?\n/)) {
+      const p = line.trim();
+      if (path.isAbsolute(p) && /winget\.exe$/i.test(p) && safeRoots.some((r) => p.toLowerCase().startsWith(r))) cands.push(p);
+    }
+  }
+  for (const c of cands) {
+    const r = await run(c, ["--version"]);
+    if (r.code === 0) { wingetVersion = r.out; return (wingetPath = c); }
+  }
+  return (wingetPath = null);
 }
 
 function createWindow() {
@@ -133,9 +149,7 @@ handle("get-debloat", () => DEBLOAT);
 
 handle("check-winget", async () => {
   const w = await resolveWinget();
-  if (!w) return { ok: false };
-  const r = await run(w, ["--version"]);
-  return r.code === 0 ? { ok: true, version: r.out } : { ok: false };
+  return w ? { ok: true, version: wingetVersion } : { ok: false };
 });
 
 // winget exit codes treated as success

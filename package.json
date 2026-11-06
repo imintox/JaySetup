@@ -1,6 +1,6 @@
 {
   "name": "jay-setup",
-  "version": "1.4.1",
+  "version": "1.4.2",
   "description": "Installs your essential apps, applies Windows tweaks and removes bloat after a fresh Windows install",
   "main": "main.js",
   "author": "Jayden M.",
