@@ -14,15 +14,26 @@
   },
   "devDependencies": {
     "electron": "^33.2.0",
-    "electron-builder": "^25.1.8"
+    "electron-builder": "^26.18.0"
   },
   "build": {
     "appId": "com.jay.setup",
     "productName": "Jay Setup",
     "copyright": "Designed by Jayden M.",
     "asar": true,
-    "files": ["main.js", "preload.js", "apps.js", "tweaks.js", "debloat.js", "index.html", "build/icon.ico"],
-    "directories": { "output": "dist", "buildResources": "build" },
+    "files": [
+      "main.js",
+      "preload.js",
+      "apps.js",
+      "tweaks.js",
+      "debloat.js",
+      "index.html",
+      "build/icon.ico"
+    ],
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
     "electronFuses": {
       "runAsNode": false,
       "enableCookieEncryption": true,
@@ -33,7 +44,10 @@
       "grantFileProtocolExtraPrivileges": false
     },
     "win": {
-      "target": ["nsis", "portable"],
+      "target": [
+        "nsis",
+        "portable"
+      ],
       "icon": "build/icon.ico",
       "requestedExecutionLevel": "requireAdministrator"
     },
