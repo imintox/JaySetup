@@ -1,14 +1,16 @@
 {
   "name": "jay-setup",
-  "version": "1.3.0",
-  "description": "Installs your essential apps after a fresh Windows install",
+  "version": "1.4.0",
+  "description": "Installs your essential apps, applies Windows tweaks and removes bloat after a fresh Windows install",
   "main": "main.js",
   "author": "Jayden M.",
   "license": "UNLICENSED",
   "private": true,
   "scripts": {
     "start": "electron .",
-    "build": "electron-builder --win portable"
+    "build": "electron-builder --win nsis portable",
+    "build:installer": "electron-builder --win nsis",
+    "build:portable": "electron-builder --win portable"
   },
   "devDependencies": {
     "electron": "^33.2.0",
@@ -17,13 +19,39 @@
   "build": {
     "appId": "com.jay.setup",
     "productName": "Jay Setup",
-    "artifactName": "JaySetup.exe",
+    "copyright": "Designed by Jayden M.",
+    "asar": true,
     "files": ["main.js", "preload.js", "apps.js", "tweaks.js", "debloat.js", "index.html", "build/icon.ico"],
-    "directories": { "output": "dist" },
+    "directories": { "output": "dist", "buildResources": "build" },
+    "electronFuses": {
+      "runAsNode": false,
+      "enableCookieEncryption": true,
+      "enableNodeOptionsEnvironmentVariable": false,
+      "enableNodeCliInspectArguments": false,
+      "enableEmbeddedAsarIntegrityValidation": true,
+      "onlyLoadAppFromAsar": true,
+      "grantFileProtocolExtraPrivileges": false
+    },
     "win": {
-      "target": "portable",
+      "target": ["nsis", "portable"],
       "icon": "build/icon.ico",
       "requestedExecutionLevel": "requireAdministrator"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": true,
+      "allowToChangeInstallationDirectory": true,
+      "allowElevation": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Jay Setup",
+      "deleteAppDataOnUninstall": true,
+      "artifactName": "JaySetup-Setup.${ext}",
+      "installerIcon": "build/icon.ico",
+      "uninstallerIcon": "build/icon.ico"
+    },
+    "portable": {
+      "artifactName": "JaySetup-Portable.${ext}"
     }
   }
 }

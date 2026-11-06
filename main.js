@@ -1,13 +1,42 @@
-const { app, BrowserWindow, ipcMain } = require("electron");
+const { app, BrowserWindow, ipcMain, session } = require("electron");
 const { spawn, execFile } = require("child_process");
+const fs = require("fs");
 const path = require("path");
 const APPS = require("./apps");
 const TWEAKS = require("./tweaks");
 const DEBLOAT = require("./debloat");
 
+// ---------- Hardening ----------
+app.enableSandbox();
+if (!app.requestSingleInstanceLock()) app.quit();
+
 let win = null;
 let current = null;
 let cancelled = false;
+let working = false; // only one install / tweak / debloat run at a time
+
+// This app runs as administrator, so never launch tools by bare name (a file planted next to
+// the exe or in the working directory could be picked up). Use absolute System32 paths.
+const SYS = path.join(process.env.SystemRoot || "C:\\Windows", "System32");
+const EXE = {
+  reg: path.join(SYS, "reg.exe"),
+  powercfg: path.join(SYS, "powercfg.exe"),
+  taskkill: path.join(SYS, "taskkill.exe"),
+  where: path.join(SYS, "where.exe"),
+  powershell: path.join(SYS, "WindowsPowerShell", "v1.0", "powershell.exe"),
+};
+const SPAWN_OPTS = { windowsHide: true, cwd: SYS };
+
+let wingetPath; // undefined = not looked up yet, null = not found
+async function resolveWinget() {
+  if (wingetPath !== undefined) return wingetPath;
+  const alias = path.join(process.env.LOCALAPPDATA || "", "Microsoft", "WindowsApps", "winget.exe");
+  if (process.env.LOCALAPPDATA && fs.existsSync(alias)) return (wingetPath = alias);
+  const r = await run("where", ["winget"]);
+  const first = r.out.split(/\r?\n/)[0].trim();
+  wingetPath = r.code === 0 && path.isAbsolute(first) && fs.existsSync(first) ? first : null;
+  return wingetPath;
+}
 
 function createWindow() {
   win = new BrowserWindow({
@@ -15,7 +44,7 @@ function createWindow() {
     height: 760,
     minWidth: 360,
     minHeight: 520,
-    backgroundColor: "#0e0f14",
+    backgroundColor: "#0b0c11",
     title: "Jay Setup",
     icon: path.join(__dirname, "build", "icon.ico"),
     autoHideMenuBar: true,
@@ -23,28 +52,87 @@ function createWindow() {
       preload: path.join(__dirname, "preload.js"),
       contextIsolation: true,
       nodeIntegration: false,
+      sandbox: true,
+      webSecurity: true,
+      allowRunningInsecureContent: false,
+      webviewTag: false,
+      spellcheck: false,
+      navigateOnDragDrop: false,
+      devTools: !app.isPackaged,
     },
   });
   win.removeMenu();
+  // The window may only ever show our own page.
+  win.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
+  win.webContents.on("will-navigate", (e) => e.preventDefault());
+  win.webContents.on("will-attach-webview", (e) => e.preventDefault());
   win.loadFile("index.html");
 }
 
-app.whenReady().then(createWindow);
+app.on("second-instance", () => {
+  if (win) { if (win.isMinimized()) win.restore(); win.focus(); }
+});
+
+app.whenReady().then(() => {
+  const ses = session.defaultSession;
+  ses.setPermissionRequestHandler((_wc, _perm, cb) => cb(false));
+  ses.setPermissionCheckHandler(() => false);
+  // Network allowlist: local files plus the favicon service used for app icons. Nothing else.
+  ses.webRequest.onBeforeRequest((details, cb) => {
+    let ok = false;
+    try {
+      const u = new URL(details.url);
+      ok =
+        u.protocol === "file:" ||
+        u.protocol === "data:" ||
+        (!app.isPackaged && (u.protocol === "devtools:" || u.protocol === "chrome-extension:")) ||
+        (u.protocol === "https:" &&
+          ((u.hostname === "www.google.com" && u.pathname.startsWith("/s2/favicons")) ||
+            u.hostname.endsWith(".gstatic.com")));
+    } catch { /* blocked */ }
+    cb({ cancel: !ok });
+  });
+  createWindow();
+});
 app.on("window-all-closed", () => app.quit());
 
 const send = (ch, data) => win && !win.isDestroyed() && win.webContents.send(ch, data);
 
-ipcMain.handle("get-apps", () => APPS);
-ipcMain.handle("get-tweaks", () => TWEAKS);
-ipcMain.handle("get-debloat", () => DEBLOAT);
+// ---------- IPC (only our own local page may call these) ----------
+const trusted = (e) => {
+  try {
+    return !!e.senderFrame && new URL(e.senderFrame.url).protocol === "file:" && e.sender === win.webContents;
+  } catch { return false; }
+};
+function handle(channel, fn) {
+  ipcMain.handle(channel, (e, ...args) => {
+    if (!trusted(e)) throw new Error("untrusted sender");
+    return fn(e, ...args);
+  });
+}
+const cleanIds = (x) => {
+  if (!Array.isArray(x) || x.length > 500 || !x.every((s) => typeof s === "string" && s.length < 64)) {
+    throw new Error("bad ids");
+  }
+  return x;
+};
+// Wrap long-running jobs so two can't run at once.
+const exclusive = (fn) => async (...args) => {
+  if (working) throw new Error("busy");
+  working = true;
+  try { return await fn(...args); } finally { working = false; }
+};
 
-ipcMain.handle("check-winget", () =>
-  new Promise((resolve) => {
-    execFile("winget", ["--version"], { windowsHide: true }, (err, out) =>
-      resolve(err ? { ok: false } : { ok: true, version: String(out).trim() })
-    );
-  })
-);
+handle("get-apps", () => APPS);
+handle("get-tweaks", () => TWEAKS);
+handle("get-debloat", () => DEBLOAT);
+
+handle("check-winget", async () => {
+  const w = await resolveWinget();
+  if (!w) return { ok: false };
+  const r = await run(w, ["--version"]);
+  return r.code === 0 ? { ok: true, version: r.out } : { ok: false };
+});
 
 // winget exit codes treated as success
 const OK_CODES = new Set([
@@ -53,15 +141,16 @@ const OK_CODES = new Set([
   3010,        // success, reboot required
 ]);
 
-function runWinget(entry) {
+function runWinget(wingetExe, entry) {
   return new Promise((resolve) => {
+    // Every argument comes from the built-in catalog, never from the UI.
     const args = [
       "install", "--id", entry.winget, "-e",
       "--source", entry.source || "winget",
       "--silent", "--disable-interactivity",
       "--accept-package-agreements", "--accept-source-agreements",
     ];
-    current = spawn("winget", args, { windowsHide: true });
+    current = spawn(wingetExe, args, SPAWN_OPTS);
     const onData = (buf) => {
       String(buf)
         .split(/[\r\n]+/)
@@ -82,8 +171,10 @@ function runWinget(entry) {
   });
 }
 
-ipcMain.handle("install", async (_e, ids) => {
+handle("install", exclusive(async (_e, rawIds) => {
+  const ids = cleanIds(rawIds);
   cancelled = false;
+  const w = await resolveWinget();
   const queue = APPS.filter((a) => ids.includes(a.id));
   let done = 0;
   let failed = 0;
@@ -92,9 +183,15 @@ ipcMain.handle("install", async (_e, ids) => {
       send("status", { id: entry.id, state: "cancelled" });
       continue;
     }
+    if (!w) {
+      failed++;
+      send("log", "winget was not found.");
+      send("status", { id: entry.id, state: "failed" });
+      continue;
+    }
     send("status", { id: entry.id, state: "running" });
     send("log", `--- Installing ${entry.name} ---`);
-    const code = await runWinget(entry);
+    const code = await runWinget(w, entry);
     if (cancelled) {
       send("status", { id: entry.id, state: "cancelled" });
     } else if (OK_CODES.has(code)) {
@@ -107,24 +204,37 @@ ipcMain.handle("install", async (_e, ids) => {
     }
   }
   return { done, failed, cancelled };
-});
+}));
 
-ipcMain.handle("cancel", () => {
+handle("cancel", () => {
   cancelled = true;
   if (current) {
     // kill winget and any installer it launched
-    spawn("taskkill", ["/pid", String(current.pid), "/t", "/f"], { windowsHide: true });
+    spawn(EXE.taskkill, ["/pid", String(current.pid), "/t", "/f"], SPAWN_OPTS);
   }
 });
 
-// ---------- Windows tweaks ----------
-const run = (cmd, args) =>
-  new Promise((resolve) =>
-    execFile(cmd, args, { windowsHide: true }, (err, so, se) =>
+// ---------- Helpers ----------
+function run(cmd, args) {
+  const file = EXE[cmd] || cmd; // names map to System32; anything else must already be an absolute path
+  if (!path.isAbsolute(file)) throw new Error("refusing to run a non-absolute path: " + cmd);
+  return new Promise((resolve) =>
+    execFile(file, args, SPAWN_OPTS, (err, so, se) =>
       resolve({ code: err ? (typeof err.code === "number" ? err.code : 1) : 0, out: `${so || ""}${se || ""}`.trim() })
     )
   );
+}
 
+async function makeRestorePoint() {
+  send("log", "Creating a restore point (skipped if System Protection is off)...");
+  const rp = await run("powershell", [
+    "-NoProfile", "-NonInteractive", "-Command",
+    "Checkpoint-Computer -Description 'Jay Setup' -RestorePointType MODIFY_SETTINGS -ErrorAction Stop",
+  ]);
+  send("log", rp.code === 0 ? "Restore point created." : "No restore point made (System Protection off or one was made in the last 24h).");
+}
+
+// ---------- Windows tweaks ----------
 function opToCall(op, mode) {
   if (op.cmd) return { cmd: op.cmd, args: mode === "on" ? op.args : op.offArgs, ignoreFail: false };
   const add = (data) => [
@@ -136,7 +246,9 @@ function opToCall(op, mode) {
   return { cmd: "reg", args: add(op.off), ignoreFail: false };
 }
 
-ipcMain.handle("apply-tweaks", async (_e, ids, mode) => {
+handle("apply-tweaks", exclusive(async (_e, rawIds, mode) => {
+  const ids = cleanIds(rawIds);
+  if (mode !== "on" && mode !== "off") throw new Error("bad mode");
   const list = TWEAKS.filter((t) => ids.includes(t.id));
   if (mode === "on" && list.length) await makeRestorePoint();
   let ok = 0, failed = 0, explorer = false, reboot = false;
@@ -160,17 +272,9 @@ ipcMain.handle("apply-tweaks", async (_e, ids, mode) => {
     }
   }
   return { ok, failed, explorer, reboot };
-});
+}));
 
-async function makeRestorePoint() {
-  send("log", "Creating a restore point (skipped if System Protection is off)...");
-  const rp = await run("powershell", [
-    "-NoProfile", "-Command",
-    "Checkpoint-Computer -Description 'Jay Setup' -RestorePointType MODIFY_SETTINGS -ErrorAction Stop",
-  ]);
-  send("log", rp.code === 0 ? "Restore point created." : "No restore point made (System Protection off or one was made in the last 24h).");
-}
-
+// ---------- Debloat ----------
 function bloatScript(item) {
   if (item.ps) return item.ps;
   const pats = [].concat(item.pkg).map((p) => `'${p}'`).join(",");
@@ -183,13 +287,14 @@ function bloatScript(item) {
   );
 }
 
-ipcMain.handle("remove-bloat", async (_e, ids) => {
+handle("remove-bloat", exclusive(async (_e, rawIds) => {
+  const ids = cleanIds(rawIds);
   const list = DEBLOAT.filter((b) => ids.includes(b.id));
   if (list.length) await makeRestorePoint();
   let removed = 0, none = 0, failed = 0;
   for (const b of list) {
     send("status", { id: b.id, state: "running" });
-    const r = await run("powershell", ["-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", bloatScript(b)]);
+    const r = await run("powershell", ["-NoProfile", "-NonInteractive", "-Command", bloatScript(b)]);
     const m = /removed:(\d+)/.exec(r.out);
     if (r.code !== 0 || !m) {
       failed++;
@@ -204,9 +309,9 @@ ipcMain.handle("remove-bloat", async (_e, ids) => {
     }
   }
   return { removed, none, failed };
-});
+}));
 
-ipcMain.handle("restart-explorer", async () => {
+handle("restart-explorer", async () => {
   // Windows relaunches the shell on its own after it is killed
   await run("taskkill", ["/f", "/im", "explorer.exe"]);
 });
