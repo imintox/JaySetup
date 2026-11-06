@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'unsafe-inline'; script-src 'self' 'unsafe-inline'">
+<title>Jay Setup</title>
+<style>
+  :root { --bg:#0e0f14; --panel:#171922; --line:#262a38; --text:#e8eaf2; --dim:#8b90a3; --accent:#7c5cff; --ok:#3ddc97; --bad:#ff5d6c; }
+  * { box-sizing: border-box; }
+  html, body { margin:0; height:100%; background:var(--bg); color:var(--text); font:14px/1.4 "Segoe UI", system-ui, sans-serif; }
+  body { display:flex; flex-direction:column; }
+  header { padding:16px 20px 10px; }
+  h1 { margin:0; font-size:20px; }
+  .sub { color:var(--dim); font-size:12px; margin-top:2px; }
+  .bar { display:flex; flex-wrap:wrap; gap:8px; padding:0 20px 12px; align-items:center; }
+  button { background:var(--panel); color:var(--text); border:1px solid var(--line); border-radius:8px; padding:8px 14px; font:inherit; cursor:pointer; }
+  button:hover:not(:disabled) { border-color:var(--accent); }
+  button:disabled { opacity:.5; cursor:default; }
+  button.primary { background:var(--accent); border-color:var(--accent); font-weight:600; }
+  button.danger { border-color:var(--bad); color:var(--bad); }
+  .count { margin-left:auto; color:var(--dim); font-size:12px; }
+  main { flex:1; overflow:auto; padding:0 20px 12px; }
+  .cat { margin:14px 0 6px; display:flex; align-items:center; gap:10px; }
+  .cat h2 { margin:0; font-size:12px; letter-spacing:.08em; text-transform:uppercase; color:var(--dim); }
+  .cat button { padding:2px 10px; font-size:11px; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(220px, 1fr)); gap:8px; }
+  label.app { display:flex; align-items:center; gap:10px; background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:10px 12px; cursor:pointer; min-height:44px; }
+  label.app:has(input:checked) { border-color:var(--accent); }
+  label.app input { accent-color:var(--accent); width:16px; height:16px; flex:none; }
+  label.app .name { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .badge { font-size:11px; color:var(--dim); flex:none; }
+  .badge.running { color:var(--accent); } .badge.done { color:var(--ok); } .badge.failed { color:var(--bad); }
+  #log { height:130px; margin:0 20px 16px; background:#0a0b0f; border:1px solid var(--line); border-radius:8px; padding:8px 10px; overflow:auto; font:12px/1.4 Consolas, monospace; color:var(--dim); white-space:pre-wrap; word-break:break-word; }
+  #warn { display:none; margin:0 20px 10px; padding:10px 12px; border:1px solid var(--bad); border-radius:8px; color:var(--bad); }
+  footer { text-align:center; color:var(--dim); font-size:11px; padding:0 0 10px; }
+  @media (max-width:520px) {
+    .bar button { flex:1 1 40%; } .count { width:100%; margin:0; }
+    .grid { grid-template-columns:1fr; } #log { height:100px; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>Jay Setup</h1>
+  <div class="sub">Pick what you want and it installs everything silently, one after another.</div>
+</header>
+<div id="warn"></div>
+<div class="bar">
+  <button id="all">Select all</button>
+  <button id="none">Select none</button>
+  <button id="go" class="primary">Install selected</button>
+  <button id="stop" class="danger" style="display:none">Cancel</button>
+  <span class="count" id="count"></span>
+</div>
+<main id="list"></main>
+<div id="log"></div>
+<footer>Designed by: Jayden M.</footer>
+
+<script>
+const $ = (s) => document.querySelector(s);
+const boxes = {};
+const badges = {};
+let busy = false;
+
+function updateCount() {
+  const n = Object.values(boxes).filter((b) => b.checked).length;
+  $("#count").textContent = n + " selected";
+  $("#go").disabled = busy || n === 0;
+}
+
+function log(line) {
+  const el = $("#log");
+  el.textContent += line + "\n";
+  el.scrollTop = el.scrollHeight;
+}
+
+function setBusy(v) {
+  busy = v;
+  $("#stop").style.display = v ? "" : "none";
+  $("#all").disabled = $("#none").disabled = v;
+  Object.values(boxes).forEach((b) => (b.disabled = v));
+  updateCount();
+}
+
+(async function init() {
+  const apps = await setup.getApps();
+  const wg = await setup.checkWinget();
+  if (!wg.ok) {
+    const w = $("#warn");
+    w.style.display = "block";
+    w.textContent = "winget was not found. Open the Microsoft Store, update \"App Installer\", then restart Jay Setup.";
+    $("#go").disabled = true;
+  }
+
+  const cats = [...new Set(apps.map((a) => a.cat))];
+  for (const cat of cats) {
+    const head = document.createElement("div");
+    head.className = "cat";
+    head.innerHTML = "<h2></h2><button>Toggle</button>";
+    head.querySelector("h2").textContent = cat;
+    const grid = document.createElement("div");
+    grid.className = "grid";
+    const mine = [];
+    for (const a of apps.filter((x) => x.cat === cat)) {
+      const l = document.createElement("label");
+      l.className = "app";
+      l.innerHTML = '<input type="checkbox"><span class="name"></span><span class="badge"></span>';
+      const cb = l.querySelector("input");
+      cb.checked = !!a.on;
+      cb.addEventListener("change", updateCount);
+      l.querySelector(".name").textContent = a.name;
+      boxes[a.id] = cb;
+      badges[a.id] = l.querySelector(".badge");
+      mine.push(cb);
+      grid.appendChild(l);
+    }
+    head.querySelector("button").onclick = () => {
+      const all = mine.every((c) => c.checked);
+      mine.forEach((c) => (c.checked = !all));
+      updateCount();
+    };
+    $("#list").append(head, grid);
+  }
+  updateCount();
+  if (!wg.ok) $("#go").disabled = true;
+})();
+
+$("#all").onclick = () => { Object.values(boxes).forEach((b) => (b.checked = true)); updateCount(); };
+$("#none").onclick = () => { Object.values(boxes).forEach((b) => (b.checked = false)); updateCount(); };
+
+$("#go").onclick = async () => {
+  const ids = Object.keys(boxes).filter((id) => boxes[id].checked);
+  if (!ids.length) return;
+  Object.values(badges).forEach((b) => { b.textContent = ""; b.className = "badge"; });
+  ids.forEach((id) => { badges[id].textContent = "queued"; });
+  $("#log").textContent = "";
+  setBusy(true);
+  const r = await setup.install(ids);
+  setBusy(false);
+  log(r.cancelled ? "Cancelled." : `Finished: ${r.done} installed, ${r.failed} failed.`);
+};
+
+$("#stop").onclick = () => setup.cancel();
+
+setup.onLog(log);
+setup.onStatus(({ id, state, reboot }) => {
+  const b = badges[id];
+  if (!b) return;
+  b.className = "badge " + state;
+  b.textContent = { running: "installing…", done: reboot ? "done (reboot)" : "done", failed: "failed", cancelled: "cancelled" }[state];
+});
+</script>
+</body>
+</html>
