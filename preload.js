@@ -5,6 +5,8 @@ contextBridge.exposeInMainWorld("setup", {
   checkWinget: () => ipcRenderer.invoke("check-winget"),
   getTweaks: () => ipcRenderer.invoke("get-tweaks"),
   applyTweaks: (ids, mode) => ipcRenderer.invoke("apply-tweaks", ids, mode),
+  getDebloat: () => ipcRenderer.invoke("get-debloat"),
+  removeBloat: (ids) => ipcRenderer.invoke("remove-bloat", ids),
   restartExplorer: () => ipcRenderer.invoke("restart-explorer"),
   install: (ids) => ipcRenderer.invoke("install", ids),
   cancel: () => ipcRenderer.invoke("cancel"),

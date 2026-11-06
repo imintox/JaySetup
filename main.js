@@ -3,6 +3,7 @@ const { spawn, execFile } = require("child_process");
 const path = require("path");
 const APPS = require("./apps");
 const TWEAKS = require("./tweaks");
+const DEBLOAT = require("./debloat");
 
 let win = null;
 let current = null;
@@ -16,6 +17,7 @@ function createWindow() {
     minHeight: 520,
     backgroundColor: "#0e0f14",
     title: "Jay Setup",
+    icon: path.join(__dirname, "build", "icon.ico"),
     autoHideMenuBar: true,
     webPreferences: {
       preload: path.join(__dirname, "preload.js"),
@@ -34,6 +36,7 @@ const send = (ch, data) => win && !win.isDestroyed() && win.webContents.send(ch,
 
 ipcMain.handle("get-apps", () => APPS);
 ipcMain.handle("get-tweaks", () => TWEAKS);
+ipcMain.handle("get-debloat", () => DEBLOAT);
 
 ipcMain.handle("check-winget", () =>
   new Promise((resolve) => {
@@ -135,14 +138,7 @@ function opToCall(op, mode) {
 
 ipcMain.handle("apply-tweaks", async (_e, ids, mode) => {
   const list = TWEAKS.filter((t) => ids.includes(t.id));
-  if (mode === "on" && list.length) {
-    send("log", "Creating a restore point (skipped if System Protection is off)...");
-    const rp = await run("powershell", [
-      "-NoProfile", "-Command",
-      "Checkpoint-Computer -Description 'Jay Setup' -RestorePointType MODIFY_SETTINGS -ErrorAction Stop",
-    ]);
-    send("log", rp.code === 0 ? "Restore point created." : "No restore point made (System Protection off or one was made in the last 24h).");
-  }
+  if (mode === "on" && list.length) await makeRestorePoint();
   let ok = 0, failed = 0, explorer = false, reboot = false;
   for (const t of list) {
     send("status", { id: t.id, state: "running" });
@@ -164,6 +160,50 @@ ipcMain.handle("apply-tweaks", async (_e, ids, mode) => {
     }
   }
   return { ok, failed, explorer, reboot };
+});
+
+async function makeRestorePoint() {
+  send("log", "Creating a restore point (skipped if System Protection is off)...");
+  const rp = await run("powershell", [
+    "-NoProfile", "-Command",
+    "Checkpoint-Computer -Description 'Jay Setup' -RestorePointType MODIFY_SETTINGS -ErrorAction Stop",
+  ]);
+  send("log", rp.code === 0 ? "Restore point created." : "No restore point made (System Protection off or one was made in the last 24h).");
+}
+
+function bloatScript(item) {
+  if (item.ps) return item.ps;
+  const pats = [].concat(item.pkg).map((p) => `'${p}'`).join(",");
+  return (
+    `$n = 0; foreach ($p in @(${pats})) { ` +
+    `$f = @(Get-AppxPackage -AllUsers -Name $p -ErrorAction SilentlyContinue); $n += $f.Count; ` +
+    `$f | Remove-AppxPackage -AllUsers -ErrorAction SilentlyContinue; ` +
+    `Get-AppxProvisionedPackage -Online -ErrorAction SilentlyContinue | Where-Object { $_.DisplayName -like $p } | ` +
+    `Remove-AppxProvisionedPackage -Online -ErrorAction SilentlyContinue | Out-Null }; Write-Output "removed:$n"`
+  );
+}
+
+ipcMain.handle("remove-bloat", async (_e, ids) => {
+  const list = DEBLOAT.filter((b) => ids.includes(b.id));
+  if (list.length) await makeRestorePoint();
+  let removed = 0, none = 0, failed = 0;
+  for (const b of list) {
+    send("status", { id: b.id, state: "running" });
+    const r = await run("powershell", ["-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", bloatScript(b)]);
+    const m = /removed:(\d+)/.exec(r.out);
+    if (r.code !== 0 || !m) {
+      failed++;
+      send("log", `${b.name}: ${r.out || "exit " + r.code}`);
+      send("status", { id: b.id, state: "failed" });
+    } else if (Number(m[1]) === 0) {
+      none++;
+      send("status", { id: b.id, state: "done", label: "not installed" });
+    } else {
+      removed++;
+      send("status", { id: b.id, state: "done", label: "removed" });
+    }
+  }
+  return { removed, none, failed };
 });
 
 ipcMain.handle("restart-explorer", async () => {

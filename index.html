@@ -3,114 +3,195 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'unsafe-inline'; script-src 'self' 'unsafe-inline'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'unsafe-inline'; script-src 'self' 'unsafe-inline'; img-src 'self' data: https://www.google.com https://*.gstatic.com">
 <title>Jay Setup</title>
 <style>
-  :root { --bg:#0e0f14; --panel:#171922; --line:#262a38; --text:#e8eaf2; --dim:#8b90a3; --accent:#7c5cff; --ok:#3ddc97; --bad:#ff5d6c; }
-  * { box-sizing: border-box; }
+  :root { --bg:#0b0c11; --panel:#14161e; --panel2:#1a1d28; --line:#262a38; --text:#eceef6; --dim:#8b90a3; --accent:#7c5cff; --accent2:#5b3fd9; --ok:#3ddc97; --bad:#ff5d6c; }
+  * { box-sizing:border-box; }
   html, body { margin:0; height:100%; background:var(--bg); color:var(--text); font:14px/1.4 "Segoe UI", system-ui, sans-serif; }
-  body { display:flex; flex-direction:column; }
-  header { padding:16px 20px 8px; }
-  h1 { margin:0; font-size:20px; }
-  .sub { color:var(--dim); font-size:12px; margin-top:2px; }
-  .tabs { display:flex; gap:6px; padding:0 20px 10px; }
-  .tabs button { flex:0 0 auto; }
-  .tabs button.active { background:var(--accent); border-color:var(--accent); font-weight:600; }
-  button { background:var(--panel); color:var(--text); border:1px solid var(--line); border-radius:8px; padding:8px 14px; font:inherit; cursor:pointer; }
+  body { display:flex; flex-direction:column; background:radial-gradient(900px 300px at 10% -10%, rgba(124,92,255,.14), transparent 60%), var(--bg); }
+  ::-webkit-scrollbar { width:10px; } ::-webkit-scrollbar-thumb { background:#2a2e3d; border-radius:6px; } ::-webkit-scrollbar-track { background:transparent; }
+
+  header { display:flex; align-items:center; gap:14px; padding:16px 20px 10px; flex-wrap:wrap; }
+  .logo { width:42px; height:42px; flex:none; }
+  .title h1 { margin:0; font-size:20px; letter-spacing:.2px; }
+  .title .sub { color:var(--dim); font-size:12px; }
+  .search { margin-left:auto; position:relative; flex:0 1 260px; min-width:160px; }
+  .search input { width:100%; background:var(--panel); color:var(--text); border:1px solid var(--line); border-radius:10px; padding:9px 12px; font:inherit; outline:none; }
+  .search input:focus { border-color:var(--accent); }
+
+  .tabs { display:flex; gap:6px; padding:4px 20px 10px; }
+  .tabs button { background:transparent; border:1px solid transparent; color:var(--dim); border-radius:999px; padding:7px 16px; }
+  .tabs button.active { background:var(--panel2); border-color:var(--line); color:var(--text); font-weight:600; }
+
+  button { background:var(--panel); color:var(--text); border:1px solid var(--line); border-radius:10px; padding:8px 14px; font:inherit; cursor:pointer; transition:border-color .12s, background .12s; }
   button:hover:not(:disabled) { border-color:var(--accent); }
-  button:disabled { opacity:.5; cursor:default; }
-  button.primary { background:var(--accent); border-color:var(--accent); font-weight:600; }
+  button:disabled { opacity:.45; cursor:default; }
+  button.primary { background:linear-gradient(135deg, var(--accent), var(--accent2)); border-color:transparent; font-weight:600; }
   button.danger { border-color:var(--bad); color:var(--bad); }
-  .bar { display:flex; flex-wrap:wrap; gap:8px; padding:0 20px 12px; align-items:center; }
-  .count { margin-left:auto; color:var(--dim); font-size:12px; }
+
   section { flex:1; min-height:0; display:none; flex-direction:column; }
   section.active { display:flex; }
-  .list { flex:1; overflow:auto; padding:0 20px 12px; }
-  .cat { margin:14px 0 6px; display:flex; align-items:center; gap:10px; }
-  .cat h2 { margin:0; font-size:12px; letter-spacing:.08em; text-transform:uppercase; color:var(--dim); }
-  .cat button { padding:2px 10px; font-size:11px; }
-  .grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(240px, 1fr)); gap:8px; }
-  label.item { display:flex; align-items:center; gap:10px; background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:10px 12px; cursor:pointer; min-height:44px; }
-  label.item:has(input:checked) { border-color:var(--accent); }
+  .chips { display:flex; flex-wrap:wrap; gap:6px; padding:0 20px 8px; align-items:center; }
+  .chips .lbl { color:var(--dim); font-size:12px; margin-right:2px; }
+  .chip { padding:4px 12px; border-radius:999px; font-size:12px; background:var(--panel); }
+  .list { flex:1; overflow:auto; padding:0 20px 10px; }
+  .group { margin-top:12px; }
+  .cat { margin:0 0 6px; display:flex; align-items:center; gap:10px; }
+  .cat h2 { margin:0; font-size:11px; letter-spacing:.1em; text-transform:uppercase; color:var(--dim); }
+  .cat button { padding:1px 9px; font-size:11px; border-radius:999px; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(250px, 1fr)); gap:8px; }
+  label.item { display:flex; align-items:center; gap:11px; background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:9px 12px; cursor:pointer; min-height:52px; transition:border-color .12s, background .12s; }
+  label.item:hover { background:var(--panel2); }
+  label.item:has(input:checked) { border-color:var(--accent); background:linear-gradient(180deg, rgba(124,92,255,.10), rgba(124,92,255,.03)); }
   label.item input { accent-color:var(--accent); width:16px; height:16px; flex:none; }
-  label.item .txt { flex:1; min-width:0; }
-  label.item .name { overflow:hidden; text-overflow:ellipsis; }
-  label.item .desc { color:var(--dim); font-size:11px; margin-top:1px; }
+  .ico { width:30px; height:30px; border-radius:8px; flex:none; display:grid; place-items:center; font-weight:700; font-size:14px; color:#fff; overflow:hidden; background:var(--panel2); }
+  .ico img { width:24px; height:24px; object-fit:contain; display:block; }
+  .txt { flex:1; min-width:0; }
+  .name { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .desc { color:var(--dim); font-size:11px; margin-top:1px; }
   .badge { font-size:11px; color:var(--dim); flex:none; }
   .badge.running { color:var(--accent); } .badge.done { color:var(--ok); } .badge.failed { color:var(--bad); }
-  #log { height:130px; margin:0 20px 8px; background:#0a0b0f; border:1px solid var(--line); border-radius:8px; padding:8px 10px; overflow:auto; font:12px/1.4 Consolas, monospace; color:var(--dim); white-space:pre-wrap; word-break:break-word; }
-  #warn, #note { display:none; margin:0 20px 10px; padding:10px 12px; border:1px solid var(--bad); border-radius:8px; color:var(--bad); }
-  #note { border-color:var(--accent); color:var(--text); }
-  footer { text-align:center; color:var(--dim); font-size:11px; padding:0 0 10px; }
-  @media (max-width:520px) {
-    .bar { gap:6px; padding-bottom:8px; } .bar button { flex:1 1 28%; padding:6px 8px; font-size:13px; }
-    .count { width:100%; margin:0; }
-    .grid { grid-template-columns:1fr; } #log { height:70px; }
-    .tabs button { flex:1; }
+  #bl-warn { margin:0 20px 8px; padding:8px 12px; border:1px solid var(--line); border-radius:10px; color:var(--dim); font-size:12px; background:var(--panel); }
+  .empty { color:var(--dim); text-align:center; padding:30px 0; display:none; }
+
+  .dock { display:flex; flex-wrap:wrap; gap:8px; align-items:center; padding:10px 20px; border-top:1px solid var(--line); background:rgba(11,12,17,.85); }
+  .dock .count { color:var(--dim); font-size:12px; margin-right:auto; }
+  #prog { height:3px; background:var(--line); margin:0 20px; border-radius:3px; overflow:hidden; opacity:0; transition:opacity .2s; }
+  #prog.on { opacity:1; } #prog i { display:block; height:100%; width:0; background:linear-gradient(90deg, var(--accent), var(--ok)); transition:width .25s; }
+  details { margin:6px 20px 0; }
+  summary { cursor:pointer; color:var(--dim); font-size:12px; padding:4px 0; user-select:none; }
+  #log { height:120px; background:#090a0e; border:1px solid var(--line); border-radius:8px; padding:8px 10px; overflow:auto; font:12px/1.4 Consolas, monospace; color:var(--dim); white-space:pre-wrap; word-break:break-word; }
+  #warn, #note { display:none; margin:0 20px 8px; padding:9px 12px; border:1px solid var(--bad); border-radius:10px; color:var(--bad); font-size:13px; }
+  #note { border-color:var(--accent); color:var(--text); background:rgba(124,92,255,.08); }
+  footer { text-align:center; color:var(--dim); font-size:11px; padding:6px 0 8px; }
+
+  @media (max-width:560px) {
+    #bl-warn { margin-left:14px; margin-right:14px; }
+    header { padding:12px 14px 6px; } .search { flex:1 1 100%; margin:0; }
+    .tabs { padding:4px 14px 8px; gap:4px; } .tabs button { flex:1; padding:7px 6px; font-size:13px; white-space:nowrap; }
+    .chips, .list { padding-left:14px; padding-right:14px; } #prog, details { margin-left:14px; margin-right:14px; }
+    .grid { grid-template-columns:1fr; } .dock { padding:8px 14px; gap:6px; }
+    .dock button { flex:1 1 30%; padding:7px 8px; font-size:13px; } .dock .count { flex:1 1 100%; }
+    #log { height:70px; }
   }
 </style>
 </head>
 <body>
 <header>
-  <h1>Jay Setup</h1>
-  <div class="sub">Install your apps and apply Windows tweaks after a fresh install.</div>
+  <svg class="logo" viewBox="0 0 64 64" aria-hidden="true">
+    <defs><linearGradient id="lg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#7c5cff"/><stop offset="1" stop-color="#3c28c8"/></linearGradient></defs>
+    <rect x="3" y="3" width="58" height="58" rx="15" fill="url(#lg)"/>
+    <rect x="28" y="14" width="8" height="22" fill="#fff"/><path d="M18 31h28L32 47z" fill="#fff"/><rect x="16" y="50" width="32" height="4" rx="2" fill="#fff"/>
+  </svg>
+  <div class="title"><h1>Jay Setup</h1><div class="sub">Apps and Windows tweaks for a fresh install</div></div>
+  <div class="search"><input id="q" type="search" placeholder="Search..." autocomplete="off"></div>
 </header>
 <div class="tabs">
   <button id="tab-apps-btn" class="active">Apps</button>
   <button id="tab-tweaks-btn">Windows Tweaks</button>
+  <button id="tab-debloat-btn">Debloat</button>
 </div>
 <div id="warn"></div>
 <div id="note"></div>
 
 <section id="sec-apps" class="active">
-  <div class="bar">
-    <button id="apps-all">Select all</button>
-    <button id="apps-none">Select none</button>
-    <button id="apps-go" class="primary">Install selected</button>
-    <button id="apps-stop" class="danger" style="display:none">Cancel</button>
-    <span class="count" id="apps-count"></span>
-  </div>
+  <div class="chips" id="presets"><span class="lbl">Quick pick:</span></div>
   <div class="list" id="apps-list"></div>
+  <div class="empty" id="apps-empty">No apps match your search.</div>
+  <div class="dock">
+    <span class="count" id="apps-count"></span>
+    <button id="apps-stop" class="danger" style="display:none">Cancel</button>
+    <button id="apps-go" class="primary">Install selected</button>
+  </div>
 </section>
 
 <section id="sec-tweaks">
-  <div class="bar">
-    <button id="tw-all">Select all</button>
-    <button id="tw-none">Select none</button>
-    <button id="tw-go" class="primary">Apply selected</button>
-    <button id="tw-undo">Revert selected</button>
-    <button id="tw-explorer">Restart Explorer</button>
-    <span class="count" id="tw-count"></span>
+  <div class="chips">
+    <span class="lbl">Quick pick:</span>
+    <button class="chip" id="tw-rec">Recommended</button>
+    <button class="chip" id="tw-all">All</button>
+    <button class="chip" id="tw-none">None</button>
   </div>
   <div class="list" id="tw-list"></div>
+  <div class="empty" id="tw-empty">No tweaks match your search.</div>
+  <div class="dock">
+    <span class="count" id="tw-count"></span>
+    <button id="tw-explorer">Restart Explorer</button>
+    <button id="tw-undo">Revert selected</button>
+    <button id="tw-go" class="primary">Apply selected</button>
+  </div>
 </section>
 
-<div id="log"></div>
+<section id="sec-debloat">
+  <div class="chips">
+    <span class="lbl">Quick pick:</span>
+    <button class="chip" id="bl-rec">Recommended</button>
+    <button class="chip" id="bl-all">All</button>
+    <button class="chip" id="bl-none">None</button>
+  </div>
+  <div id="bl-warn">Removes the selected preinstalled apps for all users. You can reinstall any of them from the Microsoft Store.</div>
+  <div class="list" id="bl-list"></div>
+  <div class="empty" id="bl-empty">No apps match your search.</div>
+  <div class="dock">
+    <span class="count" id="bl-count"></span>
+    <button id="bl-go" class="primary">Remove selected</button>
+  </div>
+</section>
+
+<div id="prog"><i></i></div>
+<details id="logwrap"><summary>Log</summary><div id="log"></div></details>
 <footer>Designed by: Jayden M.</footer>
 
 <script>
 const $ = (s) => document.querySelector(s);
 let busy = false;
-const stores = { apps: { boxes: {}, badges: {} }, tw: { boxes: {}, badges: {} } };
+const stores = { apps: { boxes:{}, badges:{}, items:[] }, tw: { boxes:{}, badges:{}, items:[] }, bl: { boxes:{}, badges:{}, items:[] } };
+let prog = { total:0, done:0 };
 
-function log(line) { const el = $("#log"); el.textContent += line + "\n"; el.scrollTop = el.scrollHeight; }
-function selected(k) { const b = stores[k].boxes; return Object.keys(b).filter((id) => b[id].checked); }
+const log = (line) => { const el = $("#log"); el.textContent += line + "\n"; el.scrollTop = el.scrollHeight; };
+const selected = (k) => Object.keys(stores[k].boxes).filter((id) => stores[k].boxes[id].checked);
+const hue = (s) => { let h = 0; for (const c of s) h = (h * 31 + c.charCodeAt(0)) % 360; return h; };
 
 function refresh() {
   $("#apps-count").textContent = selected("apps").length + " selected";
   $("#tw-count").textContent = selected("tw").length + " selected";
+  $("#bl-count").textContent = selected("bl").length + " selected";
+  $("#bl-go").disabled = busy || !selected("bl").length;
   const noWinget = $("#warn").style.display === "block";
   $("#apps-go").disabled = busy || noWinget || !selected("apps").length;
   $("#tw-go").disabled = $("#tw-undo").disabled = busy || !selected("tw").length;
-  $("#tw-explorer").disabled = busy;
-  for (const id of ["#apps-all", "#apps-none", "#tw-all", "#tw-none"]) $(id).disabled = busy;
-  for (const k of ["apps", "tw"]) Object.values(stores[k].boxes).forEach((b) => (b.disabled = busy));
-  $("#apps-stop").style.display = busy && busy === "apps" ? "" : "none";
+  $("#tw-explorer").disabled = !!busy;
+  document.querySelectorAll(".chip, .cat button").forEach((b) => (b.disabled = !!busy));
+  for (const k of ["apps", "tw", "bl"]) Object.values(stores[k].boxes).forEach((b) => (b.disabled = !!busy));
+  $("#apps-stop").style.display = busy === "apps" ? "" : "none";
 }
 
-function render(listEl, items, store) {
-  const cats = [...new Set(items.map((a) => a.cat))];
-  for (const cat of cats) {
+function makeIcon(item, kind) {
+  const d = document.createElement("div");
+  d.className = "ico";
+  const mono = () => {
+    d.innerHTML = "";
+    d.style.background = `hsl(${hue(item.name)} 45% 38%)`;
+    d.textContent = kind === "tw" ? "◆" : kind === "bl" ? "✕" : item.name[0].toUpperCase();
+  };
+  if (kind === "apps" && item.site) {
+    const img = new Image();
+    img.alt = "";
+    img.loading = "lazy";
+    img.src = "https://www.google.com/s2/favicons?domain=" + encodeURIComponent(item.site) + "&sz=64";
+    img.onerror = mono;
+    d.appendChild(img);
+  } else mono();
+  return d;
+}
+
+function render(listEl, items, kind) {
+  const store = stores[kind];
+  store.items = items;
+  for (const cat of [...new Set(items.map((a) => a.cat))]) {
+    const group = document.createElement("div");
+    group.className = "group";
     const head = document.createElement("div");
     head.className = "cat";
     head.innerHTML = "<h2></h2><button>Toggle</button>";
@@ -121,14 +202,21 @@ function render(listEl, items, store) {
     for (const a of items.filter((x) => x.cat === cat)) {
       const l = document.createElement("label");
       l.className = "item";
-      l.innerHTML = '<input type="checkbox"><span class="txt"><div class="name"></div><div class="desc"></div></span><span class="badge"></span>';
-      const cb = l.querySelector("input");
+      l.dataset.search = (a.name + " " + (a.desc || "") + " " + cat).toLowerCase();
+      const cb = document.createElement("input");
+      cb.type = "checkbox";
       cb.checked = !!a.on;
       cb.addEventListener("change", refresh);
-      l.querySelector(".name").textContent = a.name;
-      if (a.desc) l.querySelector(".desc").textContent = a.desc; else l.querySelector(".desc").remove();
+      const txt = document.createElement("span");
+      txt.className = "txt";
+      txt.innerHTML = '<div class="name"></div>' + (a.desc ? '<div class="desc"></div>' : "");
+      txt.querySelector(".name").textContent = a.name;
+      if (a.desc) txt.querySelector(".desc").textContent = a.desc;
+      const badge = document.createElement("span");
+      badge.className = "badge";
+      l.append(cb, makeIcon(a, kind), txt, badge);
       store.boxes[a.id] = cb;
-      store.badges[a.id] = l.querySelector(".badge");
+      store.badges[a.id] = badge;
       mine.push(cb);
       grid.appendChild(l);
     }
@@ -137,50 +225,110 @@ function render(listEl, items, store) {
       mine.forEach((c) => (c.checked = !all));
       refresh();
     };
-    listEl.append(head, grid);
+    group.append(head, grid);
+    listEl.appendChild(group);
   }
 }
 
 function showTab(name) {
-  for (const t of ["apps", "tweaks"]) {
+  for (const t of ["apps", "tweaks", "debloat"]) {
     $("#sec-" + t).classList.toggle("active", t === name);
     $("#tab-" + t + "-btn").classList.toggle("active", t === name);
   }
+  applySearch();
 }
 $("#tab-apps-btn").onclick = () => showTab("apps");
 $("#tab-tweaks-btn").onclick = () => showTab("tweaks");
+$("#tab-debloat-btn").onclick = () => showTab("debloat");
+
+function applySearch() {
+  const q = $("#q").value.trim().toLowerCase();
+  for (const [listId, emptyId] of [["#apps-list", "#apps-empty"], ["#tw-list", "#tw-empty"], ["#bl-list", "#bl-empty"]]) {
+    let any = false;
+    $(listId).querySelectorAll(".group").forEach((g) => {
+      let vis = 0;
+      g.querySelectorAll("label.item").forEach((l) => {
+        const show = !q || l.dataset.search.includes(q);
+        l.style.display = show ? "" : "none";
+        if (show) vis++;
+      });
+      g.style.display = vis ? "" : "none";
+      any = any || vis > 0;
+    });
+    $(emptyId).style.display = any ? "none" : "block";
+  }
+}
+$("#q").addEventListener("input", applySearch);
+
+const PRESETS = {
+  Gamer:    { cats: ["Game Launchers", "Drivers & Runtimes"], ids: ["discord", "spotify", "obs", "7zip", "chrome"] },
+  Everyday: { ids: ["chrome", "discord", "spotify", "vlc", "7zip", "npp", "zoom", "vcredist"] },
+  Developer:{ cats: ["Dev Tools"], ids: ["chrome", "7zip", "npp", "powertoys", "vcredist", "dotnet8"] },
+  Everything: { all: true },
+  None: { none: true },
+};
+function applyPreset(p) {
+  const s = stores.apps;
+  for (const a of s.items) {
+    s.boxes[a.id].checked = !!(p.all || (p.cats && p.cats.includes(a.cat)) || (p.ids && p.ids.includes(a.id)));
+  }
+  refresh();
+}
+for (const [name, p] of Object.entries(PRESETS)) {
+  const b = document.createElement("button");
+  b.className = "chip";
+  b.textContent = name;
+  b.onclick = () => applyPreset(p);
+  $("#presets").appendChild(b);
+}
+$("#tw-rec").onclick = () => { stores.tw.items.forEach((t) => (stores.tw.boxes[t.id].checked = !!t.on)); refresh(); };
+$("#tw-all").onclick = () => { Object.values(stores.tw.boxes).forEach((b) => (b.checked = true)); refresh(); };
+$("#tw-none").onclick = () => { Object.values(stores.tw.boxes).forEach((b) => (b.checked = false)); refresh(); };
+$("#bl-rec").onclick = () => { stores.bl.items.forEach((t) => (stores.bl.boxes[t.id].checked = !!t.on)); refresh(); };
+$("#bl-all").onclick = () => { Object.values(stores.bl.boxes).forEach((b) => (b.checked = true)); refresh(); };
+$("#bl-none").onclick = () => { Object.values(stores.bl.boxes).forEach((b) => (b.checked = false)); refresh(); };
 
 (async function init() {
-  const [apps, tweaks, wg] = await Promise.all([setup.getApps(), setup.getTweaks(), setup.checkWinget()]);
+  const [apps, tweaks, bloat, wg] = await Promise.all([setup.getApps(), setup.getTweaks(), setup.getDebloat(), setup.checkWinget()]);
   if (!wg.ok) {
     const w = $("#warn");
     w.style.display = "block";
     w.textContent = "winget was not found. Open the Microsoft Store, update \"App Installer\", then restart Jay Setup. (Tweaks still work.)";
   }
-  render($("#apps-list"), apps, stores.apps);
-  render($("#tw-list"), tweaks, stores.tw);
+  render($("#apps-list"), apps, "apps");
+  render($("#tw-list"), tweaks, "tw");
+  render($("#bl-list"), bloat, "bl");
   refresh();
 })();
 
-const setAll = (k, v) => () => { Object.values(stores[k].boxes).forEach((b) => (b.checked = v)); refresh(); };
-$("#apps-all").onclick = setAll("apps", true);
-$("#apps-none").onclick = setAll("apps", false);
-$("#tw-all").onclick = setAll("tw", true);
-$("#tw-none").onclick = setAll("tw", false);
-
-function resetBadges(k, ids, text) {
+function startRun(k, ids, text) {
   Object.values(stores[k].badges).forEach((b) => { b.textContent = ""; b.className = "badge"; });
-  ids.forEach((id) => { stores[k].badges[id].textContent = text; });
+  ids.forEach((id) => (stores[k].badges[id].textContent = text));
+  $("#log").textContent = "";
+  $("#note").style.display = "none";
+  prog = { total: ids.length, done: 0 };
+  setProg();
+  busy = k;
+  refresh();
+}
+function setProg() {
+  const p = $("#prog");
+  p.classList.toggle("on", prog.total > 0);
+  p.firstElementChild.style.width = (prog.total ? (prog.done / prog.total) * 100 : 0) + "%";
+}
+function endRun(failed) {
+  busy = false;
+  refresh();
+  if (failed) $("#logwrap").open = true;
+  setTimeout(() => { if (!busy) { prog.total = 0; setProg(); } }, 2500);
 }
 
 $("#apps-go").onclick = async () => {
   const ids = selected("apps");
   if (!ids.length) return;
-  resetBadges("apps", ids, "queued");
-  $("#log").textContent = "";
-  busy = "apps"; refresh();
+  startRun("apps", ids, "queued");
   const r = await setup.install(ids);
-  busy = false; refresh();
+  endRun(r.failed);
   log(r.cancelled ? "Cancelled." : `Finished: ${r.done} installed, ${r.failed} failed.`);
 };
 $("#apps-stop").onclick = () => setup.cancel();
@@ -188,35 +336,35 @@ $("#apps-stop").onclick = () => setup.cancel();
 async function runTweaks(mode) {
   const ids = selected("tw");
   if (!ids.length) return;
-  resetBadges("tw", ids, "queued");
-  $("#log").textContent = "";
-  $("#note").style.display = "none";
-  busy = "tw"; refresh();
+  startRun("tw", ids, "queued");
   const r = await setup.applyTweaks(ids, mode);
-  busy = false; refresh();
+  endRun(r.failed);
   log(`Finished: ${r.ok} ${mode === "on" ? "applied" : "reverted"}, ${r.failed} failed.`);
   const needs = [];
   if (r.explorer) needs.push("press Restart Explorer to see the changes");
   if (r.reboot) needs.push("sign out or restart for some changes to fully apply");
-  if (needs.length) {
-    const n = $("#note");
-    n.style.display = "block";
-    n.textContent = "To finish: " + needs.join(", and ") + ".";
-  }
+  if (needs.length) { const n = $("#note"); n.style.display = "block"; n.textContent = "To finish: " + needs.join(", and ") + "."; }
 }
+$("#bl-go").onclick = async () => {
+  const ids = selected("bl");
+  if (!ids.length) return;
+  if (!confirm("Remove " + ids.length + " preinstalled app(s) for all users? You can reinstall them from the Microsoft Store.")) return;
+  startRun("bl", ids, "queued");
+  const r = await setup.removeBloat(ids);
+  endRun(r.failed);
+  log(`Finished: ${r.removed} removed, ${r.none} were not installed, ${r.failed} failed.`);
+};
 $("#tw-go").onclick = () => runTweaks("on");
 $("#tw-undo").onclick = () => runTweaks("off");
-$("#tw-explorer").onclick = async () => {
-  log("Restarting Explorer (your taskbar will flash)...");
-  await setup.restartExplorer();
-};
+$("#tw-explorer").onclick = async () => { log("Restarting Explorer (your taskbar will flash)..."); await setup.restartExplorer(); };
 
 setup.onLog(log);
 setup.onStatus(({ id, state, reboot, label }) => {
-  const b = stores.apps.badges[id] || stores.tw.badges[id];
+  const b = stores.apps.badges[id] || stores.tw.badges[id] || stores.bl.badges[id];
   if (!b) return;
   b.className = "badge " + state;
   b.textContent = { running: "working…", done: label || (reboot ? "done (reboot)" : "done"), failed: "failed", cancelled: "cancelled" }[state];
+  if (state !== "running") { prog.done++; setProg(); }
 });
 </script>
 </body>
