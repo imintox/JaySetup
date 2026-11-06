@@ -2,6 +2,7 @@ const { app, BrowserWindow, ipcMain } = require("electron");
 const { spawn, execFile } = require("child_process");
 const path = require("path");
 const APPS = require("./apps");
+const TWEAKS = require("./tweaks");
 
 let win = null;
 let current = null;
@@ -32,6 +33,7 @@ app.on("window-all-closed", () => app.quit());
 const send = (ch, data) => win && !win.isDestroyed() && win.webContents.send(ch, data);
 
 ipcMain.handle("get-apps", () => APPS);
+ipcMain.handle("get-tweaks", () => TWEAKS);
 
 ipcMain.handle("check-winget", () =>
   new Promise((resolve) => {
@@ -110,4 +112,61 @@ ipcMain.handle("cancel", () => {
     // kill winget and any installer it launched
     spawn("taskkill", ["/pid", String(current.pid), "/t", "/f"], { windowsHide: true });
   }
+});
+
+// ---------- Windows tweaks ----------
+const run = (cmd, args) =>
+  new Promise((resolve) =>
+    execFile(cmd, args, { windowsHide: true }, (err, so, se) =>
+      resolve({ code: err ? (typeof err.code === "number" ? err.code : 1) : 0, out: `${so || ""}${se || ""}`.trim() })
+    )
+  );
+
+function opToCall(op, mode) {
+  if (op.cmd) return { cmd: op.cmd, args: mode === "on" ? op.args : op.offArgs, ignoreFail: false };
+  const add = (data) => [
+    "add", op.k, ...(op.v ? ["/v", op.v] : ["/ve"]), "/t", op.t, "/d", data, "/f",
+  ];
+  if (mode === "on") return { cmd: "reg", args: add(op.d), ignoreFail: false };
+  if (op.off === "KEY") return { cmd: "reg", args: ["delete", op.k, "/f"], ignoreFail: true };
+  if (op.off === undefined) return { cmd: "reg", args: ["delete", op.k, "/v", op.v, "/f"], ignoreFail: true };
+  return { cmd: "reg", args: add(op.off), ignoreFail: false };
+}
+
+ipcMain.handle("apply-tweaks", async (_e, ids, mode) => {
+  const list = TWEAKS.filter((t) => ids.includes(t.id));
+  if (mode === "on" && list.length) {
+    send("log", "Creating a restore point (skipped if System Protection is off)...");
+    const rp = await run("powershell", [
+      "-NoProfile", "-Command",
+      "Checkpoint-Computer -Description 'Jay Setup' -RestorePointType MODIFY_SETTINGS -ErrorAction Stop",
+    ]);
+    send("log", rp.code === 0 ? "Restore point created." : "No restore point made (System Protection off or one was made in the last 24h).");
+  }
+  let ok = 0, failed = 0, explorer = false, reboot = false;
+  for (const t of list) {
+    send("status", { id: t.id, state: "running" });
+    let bad = false;
+    for (const op of t.ops) {
+      const c = opToCall(op, mode);
+      const r = await run(c.cmd, c.args);
+      if (r.code !== 0 && !c.ignoreFail) {
+        bad = true;
+        send("log", `${t.name}: ${r.out || "exit " + r.code}`);
+      }
+    }
+    if (bad) { failed++; send("status", { id: t.id, state: "failed" }); }
+    else {
+      ok++;
+      explorer = explorer || !!t.explorer;
+      reboot = reboot || !!t.reboot;
+      send("status", { id: t.id, state: "done", label: mode === "on" ? "applied" : "reverted" });
+    }
+  }
+  return { ok, failed, explorer, reboot };
+});
+
+ipcMain.handle("restart-explorer", async () => {
+  // Windows relaunches the shell on its own after it is killed
+  await run("taskkill", ["/f", "/im", "explorer.exe"]);
 });

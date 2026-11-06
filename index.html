@@ -10,90 +10,106 @@
   * { box-sizing: border-box; }
   html, body { margin:0; height:100%; background:var(--bg); color:var(--text); font:14px/1.4 "Segoe UI", system-ui, sans-serif; }
   body { display:flex; flex-direction:column; }
-  header { padding:16px 20px 10px; }
+  header { padding:16px 20px 8px; }
   h1 { margin:0; font-size:20px; }
   .sub { color:var(--dim); font-size:12px; margin-top:2px; }
-  .bar { display:flex; flex-wrap:wrap; gap:8px; padding:0 20px 12px; align-items:center; }
+  .tabs { display:flex; gap:6px; padding:0 20px 10px; }
+  .tabs button { flex:0 0 auto; }
+  .tabs button.active { background:var(--accent); border-color:var(--accent); font-weight:600; }
   button { background:var(--panel); color:var(--text); border:1px solid var(--line); border-radius:8px; padding:8px 14px; font:inherit; cursor:pointer; }
   button:hover:not(:disabled) { border-color:var(--accent); }
   button:disabled { opacity:.5; cursor:default; }
   button.primary { background:var(--accent); border-color:var(--accent); font-weight:600; }
   button.danger { border-color:var(--bad); color:var(--bad); }
+  .bar { display:flex; flex-wrap:wrap; gap:8px; padding:0 20px 12px; align-items:center; }
   .count { margin-left:auto; color:var(--dim); font-size:12px; }
-  main { flex:1; overflow:auto; padding:0 20px 12px; }
+  section { flex:1; min-height:0; display:none; flex-direction:column; }
+  section.active { display:flex; }
+  .list { flex:1; overflow:auto; padding:0 20px 12px; }
   .cat { margin:14px 0 6px; display:flex; align-items:center; gap:10px; }
   .cat h2 { margin:0; font-size:12px; letter-spacing:.08em; text-transform:uppercase; color:var(--dim); }
   .cat button { padding:2px 10px; font-size:11px; }
-  .grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(220px, 1fr)); gap:8px; }
-  label.app { display:flex; align-items:center; gap:10px; background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:10px 12px; cursor:pointer; min-height:44px; }
-  label.app:has(input:checked) { border-color:var(--accent); }
-  label.app input { accent-color:var(--accent); width:16px; height:16px; flex:none; }
-  label.app .name { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(240px, 1fr)); gap:8px; }
+  label.item { display:flex; align-items:center; gap:10px; background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:10px 12px; cursor:pointer; min-height:44px; }
+  label.item:has(input:checked) { border-color:var(--accent); }
+  label.item input { accent-color:var(--accent); width:16px; height:16px; flex:none; }
+  label.item .txt { flex:1; min-width:0; }
+  label.item .name { overflow:hidden; text-overflow:ellipsis; }
+  label.item .desc { color:var(--dim); font-size:11px; margin-top:1px; }
   .badge { font-size:11px; color:var(--dim); flex:none; }
   .badge.running { color:var(--accent); } .badge.done { color:var(--ok); } .badge.failed { color:var(--bad); }
-  #log { height:130px; margin:0 20px 16px; background:#0a0b0f; border:1px solid var(--line); border-radius:8px; padding:8px 10px; overflow:auto; font:12px/1.4 Consolas, monospace; color:var(--dim); white-space:pre-wrap; word-break:break-word; }
-  #warn { display:none; margin:0 20px 10px; padding:10px 12px; border:1px solid var(--bad); border-radius:8px; color:var(--bad); }
+  #log { height:130px; margin:0 20px 8px; background:#0a0b0f; border:1px solid var(--line); border-radius:8px; padding:8px 10px; overflow:auto; font:12px/1.4 Consolas, monospace; color:var(--dim); white-space:pre-wrap; word-break:break-word; }
+  #warn, #note { display:none; margin:0 20px 10px; padding:10px 12px; border:1px solid var(--bad); border-radius:8px; color:var(--bad); }
+  #note { border-color:var(--accent); color:var(--text); }
   footer { text-align:center; color:var(--dim); font-size:11px; padding:0 0 10px; }
   @media (max-width:520px) {
-    .bar button { flex:1 1 40%; } .count { width:100%; margin:0; }
-    .grid { grid-template-columns:1fr; } #log { height:100px; }
+    .bar { gap:6px; padding-bottom:8px; } .bar button { flex:1 1 28%; padding:6px 8px; font-size:13px; }
+    .count { width:100%; margin:0; }
+    .grid { grid-template-columns:1fr; } #log { height:70px; }
+    .tabs button { flex:1; }
   }
 </style>
 </head>
 <body>
 <header>
   <h1>Jay Setup</h1>
-  <div class="sub">Pick what you want and it installs everything silently, one after another.</div>
+  <div class="sub">Install your apps and apply Windows tweaks after a fresh install.</div>
 </header>
-<div id="warn"></div>
-<div class="bar">
-  <button id="all">Select all</button>
-  <button id="none">Select none</button>
-  <button id="go" class="primary">Install selected</button>
-  <button id="stop" class="danger" style="display:none">Cancel</button>
-  <span class="count" id="count"></span>
+<div class="tabs">
+  <button id="tab-apps-btn" class="active">Apps</button>
+  <button id="tab-tweaks-btn">Windows Tweaks</button>
 </div>
-<main id="list"></main>
+<div id="warn"></div>
+<div id="note"></div>
+
+<section id="sec-apps" class="active">
+  <div class="bar">
+    <button id="apps-all">Select all</button>
+    <button id="apps-none">Select none</button>
+    <button id="apps-go" class="primary">Install selected</button>
+    <button id="apps-stop" class="danger" style="display:none">Cancel</button>
+    <span class="count" id="apps-count"></span>
+  </div>
+  <div class="list" id="apps-list"></div>
+</section>
+
+<section id="sec-tweaks">
+  <div class="bar">
+    <button id="tw-all">Select all</button>
+    <button id="tw-none">Select none</button>
+    <button id="tw-go" class="primary">Apply selected</button>
+    <button id="tw-undo">Revert selected</button>
+    <button id="tw-explorer">Restart Explorer</button>
+    <span class="count" id="tw-count"></span>
+  </div>
+  <div class="list" id="tw-list"></div>
+</section>
+
 <div id="log"></div>
 <footer>Designed by: Jayden M.</footer>
 
 <script>
 const $ = (s) => document.querySelector(s);
-const boxes = {};
-const badges = {};
 let busy = false;
+const stores = { apps: { boxes: {}, badges: {} }, tw: { boxes: {}, badges: {} } };
 
-function updateCount() {
-  const n = Object.values(boxes).filter((b) => b.checked).length;
-  $("#count").textContent = n + " selected";
-  $("#go").disabled = busy || n === 0;
+function log(line) { const el = $("#log"); el.textContent += line + "\n"; el.scrollTop = el.scrollHeight; }
+function selected(k) { const b = stores[k].boxes; return Object.keys(b).filter((id) => b[id].checked); }
+
+function refresh() {
+  $("#apps-count").textContent = selected("apps").length + " selected";
+  $("#tw-count").textContent = selected("tw").length + " selected";
+  const noWinget = $("#warn").style.display === "block";
+  $("#apps-go").disabled = busy || noWinget || !selected("apps").length;
+  $("#tw-go").disabled = $("#tw-undo").disabled = busy || !selected("tw").length;
+  $("#tw-explorer").disabled = busy;
+  for (const id of ["#apps-all", "#apps-none", "#tw-all", "#tw-none"]) $(id).disabled = busy;
+  for (const k of ["apps", "tw"]) Object.values(stores[k].boxes).forEach((b) => (b.disabled = busy));
+  $("#apps-stop").style.display = busy && busy === "apps" ? "" : "none";
 }
 
-function log(line) {
-  const el = $("#log");
-  el.textContent += line + "\n";
-  el.scrollTop = el.scrollHeight;
-}
-
-function setBusy(v) {
-  busy = v;
-  $("#stop").style.display = v ? "" : "none";
-  $("#all").disabled = $("#none").disabled = v;
-  Object.values(boxes).forEach((b) => (b.disabled = v));
-  updateCount();
-}
-
-(async function init() {
-  const apps = await setup.getApps();
-  const wg = await setup.checkWinget();
-  if (!wg.ok) {
-    const w = $("#warn");
-    w.style.display = "block";
-    w.textContent = "winget was not found. Open the Microsoft Store, update \"App Installer\", then restart Jay Setup.";
-    $("#go").disabled = true;
-  }
-
-  const cats = [...new Set(apps.map((a) => a.cat))];
+function render(listEl, items, store) {
+  const cats = [...new Set(items.map((a) => a.cat))];
   for (const cat of cats) {
     const head = document.createElement("div");
     head.className = "cat";
@@ -102,53 +118,105 @@ function setBusy(v) {
     const grid = document.createElement("div");
     grid.className = "grid";
     const mine = [];
-    for (const a of apps.filter((x) => x.cat === cat)) {
+    for (const a of items.filter((x) => x.cat === cat)) {
       const l = document.createElement("label");
-      l.className = "app";
-      l.innerHTML = '<input type="checkbox"><span class="name"></span><span class="badge"></span>';
+      l.className = "item";
+      l.innerHTML = '<input type="checkbox"><span class="txt"><div class="name"></div><div class="desc"></div></span><span class="badge"></span>';
       const cb = l.querySelector("input");
       cb.checked = !!a.on;
-      cb.addEventListener("change", updateCount);
+      cb.addEventListener("change", refresh);
       l.querySelector(".name").textContent = a.name;
-      boxes[a.id] = cb;
-      badges[a.id] = l.querySelector(".badge");
+      if (a.desc) l.querySelector(".desc").textContent = a.desc; else l.querySelector(".desc").remove();
+      store.boxes[a.id] = cb;
+      store.badges[a.id] = l.querySelector(".badge");
       mine.push(cb);
       grid.appendChild(l);
     }
     head.querySelector("button").onclick = () => {
       const all = mine.every((c) => c.checked);
       mine.forEach((c) => (c.checked = !all));
-      updateCount();
+      refresh();
     };
-    $("#list").append(head, grid);
+    listEl.append(head, grid);
   }
-  updateCount();
-  if (!wg.ok) $("#go").disabled = true;
+}
+
+function showTab(name) {
+  for (const t of ["apps", "tweaks"]) {
+    $("#sec-" + t).classList.toggle("active", t === name);
+    $("#tab-" + t + "-btn").classList.toggle("active", t === name);
+  }
+}
+$("#tab-apps-btn").onclick = () => showTab("apps");
+$("#tab-tweaks-btn").onclick = () => showTab("tweaks");
+
+(async function init() {
+  const [apps, tweaks, wg] = await Promise.all([setup.getApps(), setup.getTweaks(), setup.checkWinget()]);
+  if (!wg.ok) {
+    const w = $("#warn");
+    w.style.display = "block";
+    w.textContent = "winget was not found. Open the Microsoft Store, update \"App Installer\", then restart Jay Setup. (Tweaks still work.)";
+  }
+  render($("#apps-list"), apps, stores.apps);
+  render($("#tw-list"), tweaks, stores.tw);
+  refresh();
 })();
 
-$("#all").onclick = () => { Object.values(boxes).forEach((b) => (b.checked = true)); updateCount(); };
-$("#none").onclick = () => { Object.values(boxes).forEach((b) => (b.checked = false)); updateCount(); };
+const setAll = (k, v) => () => { Object.values(stores[k].boxes).forEach((b) => (b.checked = v)); refresh(); };
+$("#apps-all").onclick = setAll("apps", true);
+$("#apps-none").onclick = setAll("apps", false);
+$("#tw-all").onclick = setAll("tw", true);
+$("#tw-none").onclick = setAll("tw", false);
 
-$("#go").onclick = async () => {
-  const ids = Object.keys(boxes).filter((id) => boxes[id].checked);
+function resetBadges(k, ids, text) {
+  Object.values(stores[k].badges).forEach((b) => { b.textContent = ""; b.className = "badge"; });
+  ids.forEach((id) => { stores[k].badges[id].textContent = text; });
+}
+
+$("#apps-go").onclick = async () => {
+  const ids = selected("apps");
   if (!ids.length) return;
-  Object.values(badges).forEach((b) => { b.textContent = ""; b.className = "badge"; });
-  ids.forEach((id) => { badges[id].textContent = "queued"; });
+  resetBadges("apps", ids, "queued");
   $("#log").textContent = "";
-  setBusy(true);
+  busy = "apps"; refresh();
   const r = await setup.install(ids);
-  setBusy(false);
+  busy = false; refresh();
   log(r.cancelled ? "Cancelled." : `Finished: ${r.done} installed, ${r.failed} failed.`);
 };
+$("#apps-stop").onclick = () => setup.cancel();
 
-$("#stop").onclick = () => setup.cancel();
+async function runTweaks(mode) {
+  const ids = selected("tw");
+  if (!ids.length) return;
+  resetBadges("tw", ids, "queued");
+  $("#log").textContent = "";
+  $("#note").style.display = "none";
+  busy = "tw"; refresh();
+  const r = await setup.applyTweaks(ids, mode);
+  busy = false; refresh();
+  log(`Finished: ${r.ok} ${mode === "on" ? "applied" : "reverted"}, ${r.failed} failed.`);
+  const needs = [];
+  if (r.explorer) needs.push("press Restart Explorer to see the changes");
+  if (r.reboot) needs.push("sign out or restart for some changes to fully apply");
+  if (needs.length) {
+    const n = $("#note");
+    n.style.display = "block";
+    n.textContent = "To finish: " + needs.join(", and ") + ".";
+  }
+}
+$("#tw-go").onclick = () => runTweaks("on");
+$("#tw-undo").onclick = () => runTweaks("off");
+$("#tw-explorer").onclick = async () => {
+  log("Restarting Explorer (your taskbar will flash)...");
+  await setup.restartExplorer();
+};
 
 setup.onLog(log);
-setup.onStatus(({ id, state, reboot }) => {
-  const b = badges[id];
+setup.onStatus(({ id, state, reboot, label }) => {
+  const b = stores.apps.badges[id] || stores.tw.badges[id];
   if (!b) return;
   b.className = "badge " + state;
-  b.textContent = { running: "installing…", done: reboot ? "done (reboot)" : "done", failed: "failed", cancelled: "cancelled" }[state];
+  b.textContent = { running: "working…", done: label || (reboot ? "done (reboot)" : "done"), failed: "failed", cancelled: "cancelled" }[state];
 });
 </script>
 </body>

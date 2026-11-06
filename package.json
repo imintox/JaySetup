@@ -1,6 +1,6 @@
 {
   "name": "jay-setup",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Installs your essential apps after a fresh Windows install",
   "main": "main.js",
   "author": "Jayden M.",
@@ -18,7 +18,7 @@
     "appId": "com.jay.setup",
     "productName": "Jay Setup",
     "artifactName": "JaySetup.exe",
-    "files": ["main.js", "preload.js", "apps.js", "index.html"],
+    "files": ["main.js", "preload.js", "apps.js", "tweaks.js", "index.html"],
     "directories": { "output": "dist" },
     "win": {
       "target": "portable",
